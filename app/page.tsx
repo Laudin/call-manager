@@ -34,6 +34,8 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [count, setCount] = useState(0);
   const [open, setOpen] = useState(false);
+
+  // saved row data for later history push
   const [selectedRow, setSelectedRow] = useState<Row & { newState: string }>({
     id: 0,
     Agendacion: '',
@@ -47,7 +49,6 @@ export default function Home() {
     State: '',
     newState: '',
   });
-  const [changedHistory, setChangeHistory] = useState<Row[]>([]);
 
   const handleGetData = async () => {
     setLoading(true);
@@ -90,6 +91,7 @@ export default function Home() {
   const onCellClick = (cell: GridCellParams) => {
     if (cell.field == 'State') {
       setOpen(true);
+      // save row data for later history push
       setSelectedRow(cell.row);
     }
   };
@@ -113,6 +115,7 @@ export default function Home() {
       }),
     })
       .then(() => {
+        // TODO: REPLACE STATE HANDLER WITH MUI DataGrid STATE HANDLER
         const newRows = [...rows];
         const cell = newRows.find((row) => row.id == selectedRow?.id);
         if (cell) cell.State = selectedRow.newState;
@@ -122,8 +125,7 @@ export default function Home() {
         console.log(err);
       })
       .finally(() => {
-        console.log([...changedHistory, selectedRow]);
-        // setChangeHistory((history) => [...history, selectedRow]);
+        // SAVE HISTORY IN LOCALHOST
         const history = JSON.parse(
           (localStorage.getItem('changeHistory') as string) || '[]'
         );
@@ -214,6 +216,8 @@ export default function Home() {
     </main>
   );
 }
+
+// DataGrid col header format
 const cols: GridColDef[] = [
   {
     field: 'id',
@@ -253,5 +257,5 @@ const cols: GridColDef[] = [
     width: 120,
   },
   { field: 'Closer', headerName: 'Closer', width: 80 },
-  { field: 'State', headerName: 'State', width: 250, renderCell: Form },
+  { field: 'State', headerName: 'State', width: 250, renderCell: Form }, // add button to cell
 ];
