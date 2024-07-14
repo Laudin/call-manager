@@ -1,113 +1,257 @@
-import Image from "next/image";
+'use client';
+
+import {
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  FormControlLabel,
+  Radio,
+  RadioGroup,
+} from '@mui/material';
+import { DataGrid, GridCellParams, GridColDef } from '@mui/x-data-grid';
+import { ChangeEvent, useEffect, useState } from 'react';
+import { Form } from './components/Form';
+import Link from 'next/link';
+
+interface Row {
+  id: number;
+  Agendacion: string;
+  Email: string;
+  'UTM Source': string;
+  'UTM Campaign': string;
+  'UTM Medium': string;
+  'UTM Term': string;
+  'UTM Content': string;
+  Closer: string;
+  State: string;
+  newState?: string;
+}
 
 export default function Home() {
-  return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-24">
-      <div className="z-10 w-full max-w-5xl items-center justify-between font-mono text-sm lg:flex">
-        <p className="fixed left-0 top-0 flex w-full justify-center border-b border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:bg-zinc-800/30 dark:from-inherit lg:static lg:w-auto  lg:rounded-xl lg:border lg:bg-gray-200 lg:p-4 lg:dark:bg-zinc-800/30">
-          Get started by editing&nbsp;
-          <code className="font-mono font-bold">app/page.tsx</code>
-        </p>
-        <div className="fixed bottom-0 left-0 flex h-48 w-full items-end justify-center bg-gradient-to-t from-white via-white dark:from-black dark:via-black lg:static lg:size-auto lg:bg-none">
-          <a
-            className="pointer-events-none flex place-items-center gap-2 p-8 lg:pointer-events-auto lg:p-0"
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            By{" "}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className="dark:invert"
-              width={100}
-              height={24}
-              priority
-            />
-          </a>
-        </div>
-      </div>
+  const [rows, setRows] = useState<Row[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [count, setCount] = useState(0);
+  const [open, setOpen] = useState(false);
+  const [selectedRow, setSelectedRow] = useState<Row & { newState: string }>({
+    id: 0,
+    Agendacion: '',
+    Email: '',
+    'UTM Source': '',
+    'UTM Campaign': '',
+    'UTM Medium': '',
+    'UTM Term': '',
+    'UTM Content': '',
+    Closer: '',
+    State: '',
+    newState: '',
+  });
+  const [changedHistory, setChangeHistory] = useState<Row[]>([]);
 
-      <div className="relative z-[-1] flex place-items-center before:absolute before:h-[300px] before:w-full before:-translate-x-1/2 before:rounded-full before:bg-gradient-radial before:from-white before:to-transparent before:blur-2xl before:content-[''] after:absolute after:-z-20 after:h-[180px] after:w-full after:translate-x-1/3 after:bg-gradient-conic after:from-sky-200 after:via-blue-200 after:blur-2xl after:content-[''] before:dark:bg-gradient-to-br before:dark:from-transparent before:dark:to-blue-700 before:dark:opacity-10 after:dark:from-sky-900 after:dark:via-[#0141ff] after:dark:opacity-40 sm:before:w-[480px] sm:after:w-[240px] before:lg:h-[360px]">
-        <Image
-          className="relative dark:drop-shadow-[0_0_0.3rem_#ffffff70] dark:invert"
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
+  const handleGetData = async () => {
+    setLoading(true);
+    await fetch(`api/get`)
+      .then(
+        (res) =>
+          res.json() as Promise<{
+            data: string[][];
+          }>
+      )
+      .then((data) => {
+        setRows(
+          data.data.map((row, i) => ({
+            id: i + 1,
+            Agendacion: row[0],
+            Email: row[1],
+            'UTM Source': row[2],
+            'UTM Campaign': row[3],
+            'UTM Medium': row[4],
+            'UTM Term': row[5],
+            'UTM Content': row[6],
+            Closer: row[7],
+            State: row[8],
+          }))
+        );
+        setCount(data.data.length);
+      })
+      .catch((err) => {
+        console.log(err);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  };
+
+  useEffect(() => {
+    handleGetData();
+  }, []);
+
+  const onCellClick = (cell: GridCellParams) => {
+    if (cell.field == 'State') {
+      setOpen(true);
+      setSelectedRow(cell.row);
+    }
+  };
+  const handleClose = () => {
+    setOpen(false);
+  };
+
+  const handleStateChange = async (
+    event: ChangeEvent<HTMLInputElement>,
+    value: string
+  ) => {
+    setSelectedRow((state) => ({ ...state, newState: value }));
+  };
+
+  const handleUpdate = async () => {
+    await fetch(`api/update`, {
+      method: 'POST',
+      body: JSON.stringify({
+        id: selectedRow?.id,
+        state: selectedRow.newState,
+      }),
+    })
+      .then(() => {
+        const newRows = [...rows];
+        const cell = newRows.find((row) => row.id == selectedRow?.id);
+        if (cell) cell.State = selectedRow.newState;
+        setRows(newRows);
+      })
+      .catch((err) => {
+        console.log(err);
+      })
+      .finally(() => {
+        console.log([...changedHistory, selectedRow]);
+        // setChangeHistory((history) => [...history, selectedRow]);
+        const history = JSON.parse(
+          (localStorage.getItem('changeHistory') as string) || '[]'
+        );
+
+        localStorage.setItem(
+          'changeHistory',
+          JSON.stringify([...history, selectedRow])
+        );
+        handleClose();
+      });
+  };
+
+  return (
+    <main className="">
+      <div className="h-screen flex flex-col">
+        <div className="p-4 ">
+          <Link
+            href={'/historial'}
+            className="bg-black rounded-md py-2 px-4 text-white"
+          >
+            Historial &rarr;
+          </Link>
+        </div>
+        <DataGrid
+          className="flex-1"
+          rows={rows}
+          columns={cols}
+          pageSizeOptions={[50]}
+          onCellClick={onCellClick}
+          initialState={{
+            pagination: {
+              rowCount: count,
+              paginationModel: {
+                pageSize: 50,
+              },
+            },
+          }}
+          disableRowSelectionOnClick
+          getRowClassName={(params) =>
+            (params.indexRelativeToCurrentPage % 2 === 0
+              ? 'bg-gray-100'
+              : 'odd') + ' cursor-pointer'
+          }
+          loading={loading}
+          slotProps={{
+            loadingOverlay: {
+              variant: 'skeleton',
+              noRowsVariant: 'skeleton',
+            },
+          }}
         />
       </div>
 
-      <div className="mb-32 grid text-center lg:mb-0 lg:w-full lg:max-w-5xl lg:grid-cols-4 lg:text-left">
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Docs{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-sm opacity-50">
-            Find in-depth information about Next.js features and API.
-          </p>
-        </a>
-
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Learn{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-sm opacity-50">
-            Learn about Next.js in an interactive course with&nbsp;quizzes!
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Templates{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-sm opacity-50">
-            Explore starter templates for Next.js.
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Deploy{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-balance text-sm opacity-50">
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
-      </div>
+      <Dialog open={open} onClose={handleClose}>
+        <DialogTitle>Fill the form</DialogTitle>
+        <DialogContent>
+          <DialogContent dividers>
+            <RadioGroup
+              // ref={radioGroupRef}
+              // value={value}
+              onChange={handleStateChange}
+            >
+              <FormControlLabel
+                value="Contactado"
+                control={<Radio />}
+                label="Contactado"
+              />
+              <FormControlLabel
+                value="Esperando respuesta"
+                control={<Radio />}
+                label="Esperando respuesta"
+              />
+              <FormControlLabel
+                value="En llamada"
+                control={<Radio />}
+                label="En llamada"
+              />
+              <FormControlLabel value="Win" control={<Radio />} label="Win" />
+              <FormControlLabel value="Lose" control={<Radio />} label="Lose" />
+            </RadioGroup>
+          </DialogContent>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleClose}>Cancel</Button>
+          <Button onClick={handleUpdate}>Ok</Button>
+        </DialogActions>
+      </Dialog>
     </main>
   );
 }
+const cols: GridColDef[] = [
+  {
+    field: 'id',
+    headerName: 'id',
+    width: 75,
+    align: 'center',
+  },
+  {
+    field: 'Agendacion',
+    headerName: 'Agendacion',
+    width: 100,
+  },
+  { field: 'Email', headerName: 'Email', width: 200 },
+  {
+    field: 'UTM Source',
+    headerName: 'UTM Source',
+    width: 150,
+  },
+  {
+    field: 'UTM Campaign',
+    headerName: 'UTM Campaign',
+    width: 150,
+  },
+  {
+    field: 'UTM Medium',
+    headerName: 'UTM Medium',
+    width: 20,
+  },
+  {
+    field: 'UTM Term',
+    headerName: 'UTM Term',
+    width: 120,
+  },
+  {
+    field: 'UTM Content',
+    headerName: 'UTM Content',
+    width: 120,
+  },
+  { field: 'Closer', headerName: 'Closer', width: 80 },
+  { field: 'State', headerName: 'State', width: 250, renderCell: Form },
+];
